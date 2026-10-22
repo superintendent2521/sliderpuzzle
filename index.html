@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#080c1f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Brain Break" />
+<title>Brain Break</title>
+<style>
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+:root {
+  --fb: clamp(8px, 2.1vmin, 14px);
+  --card-radius: 28px;
+  --ink: #101426;
+  --muted: #6b7186;
+  --frame-ring: #d7e0ff;
+  --frame-inner: #f6f8ff;
+  --cell-a: #f4f7ff;
+  --cell-b: #e8eeff;
+  --piece-a: #c9d0e2;
+  --piece-b: #a3acc2;
+  --piece-c: #9aa4bb;
+  --piece-lip: #8892ab;
+  --blue-a: #5d88ff;
+  --blue-b: #2a5cf6;
+  --blue-c: #2352e8;
+  --blue-lip: #1c3fc6;
+}
+
+html,
+body { height: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  overflow: hidden;
+  background-color: #080c1f;
+  background-image:
+    radial-gradient(90% 60% at 12% 0%, rgba(58, 84, 190, 0.38), transparent 62%),
+    radial-gradient(70% 55% at 100% 100%, rgba(96, 52, 180, 0.30), transparent 62%),
+    linear-gradient(180deg, #101a44 0%, #0a1028 46%, #070b1c 100%);
+  color: var(--ink);
+  font-family: ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+.card {
+  position: relative;
+  width: min(94vw, 640px, calc(100vh - 136px));
+  width: min(94vw, 640px, calc(100dvh - 136px));
+  padding: 18px 24px 4px;
+  background: #fff;
+  border-radius: var(--card-radius);
+  box-shadow:
+    0 34px 80px -24px rgba(0, 0, 0, 0.8),
+    0 2px 0 rgba(255, 255, 255, 0.07) inset;
+}
+
+.card-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  margin-bottom: 14px;
+}
+
+.card-head h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.level-pill {
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #f0f3fb;
+  color: #6f7a99;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.frame {
+  position: relative;
+  border: var(--fb) solid var(--frame-ring);
+  border-radius: calc(var(--fb) + 16px);
+  background: var(--frame-inner);
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.cells,
+.pieces {
+  position: absolute;
+  inset: 0;
+}
+
+.pieces { touch-action: none; }
+
+@keyframes boardIn {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.frame.enter { animation: boardIn 0.34s ease both; }
+
+.cell {
+  position: absolute;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--cell-a), var(--cell-b));
+}
+
+.cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 120% at 0% 100%,
+              rgba(188, 205, 255, 0.55) 0%,
+              rgba(188, 205, 255, 0) 60%);
+}
+
+.piece {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: linear-gradient(180deg, var(--piece-a) 0%, var(--piece-b) 66%, var(--piece-c) 100%);
+  box-shadow:
+    0 3px 0 var(--piece-lip),
+    0 12px 18px -8px rgba(24, 36, 80, 0.55);
+  transition: transform 0.18s cubic-bezier(0.22, 0.9, 0.32, 1);
+  will-change: transform;
+  cursor: grab;
+  touch-action: none;
+}
+
+.piece.blue {
+  background: linear-gradient(180deg, var(--blue-a) 0%, var(--blue-b) 62%, var(--blue-c) 100%);
+  box-shadow:
+    0 3px 0 var(--blue-lip),
+    0 14px 22px -8px rgba(43, 92, 246, 0.62);
+}
+
+.piece.dragging { cursor: grabbing; }
+
+.pieces.no-anim .piece { transition: none !important; }
+
+.exit-gap {
+  position: absolute;
+  top: 0;
+  right: calc(var(--fb) * -1);
+  width: var(--fb);
+  height: 0;
+  background: #fff;
+  pointer-events: none;
+}
+
+.caption {
+  margin: 16px 0 14px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  border-radius: var(--card-radius);
+  background: rgba(10, 16, 40, 0.34);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.overlay-card {
+  min-width: 230px;
+  padding: 26px 30px 24px;
+  border-radius: 22px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 24px 60px -14px rgba(6, 12, 40, 0.6);
+  transform: translateY(10px) scale(0.96);
+  transition: transform 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.08);
+}
+
+.overlay.show .overlay-card { transform: none; }
+
+.overlay-card h2 {
+  margin: 0 0 18px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+button {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  color: #fff;
+  padding: 12px 26px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #4a79ff, #2a5cf6);
+  box-shadow:
+    0 3px 0 #1c3fc6,
+    0 12px 20px -10px rgba(42, 92, 246, 0.9);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  touch-action: manipulation;
+}
+
+button:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 0 #1c3fc6,
+    0 6px 14px -10px rgba(42, 92, 246, 0.9);
+}
+
+@media (max-height: 600px) {
+  .caption { margin: 10px 0 8px; font-size: 13px; }
+  .card-head { margin-bottom: 10px; }
+}
+</style>
+</head>
+<body>
+
+  <main class="card">
+    <div class="card-head">
+      <h1>Brain Break</h1>
+      <span class="level-pill" id="levelLabel">Level 1</span>
+    </div>
+
+    <div class="frame" id="frame">
+      <div class="board" id="board">
+        <div class="cells" id="cells"></div>
+        <div class="pieces" id="pieces"></div>
+      </div>
+      <div class="exit-gap" id="exitGap"></div>
+    </div>
+
+    <p class="caption">Drag to slide the blue tile through the exit.</p>
+
+    <div class="overlay" id="overlay" aria-hidden="true">
+      <div class="overlay-card">
+        <h2 id="overlayTitle">Level 1 complete</h2>
+        <button id="nextBtn" type="button">Next level</button>
+      </div>
+    </div>
+  </main>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ============================================================ config */
+
+  const N = 6;
+  const EXIT_ROW = 2;
+  const STORE_KEY = 'brain-break:level';
+
+  const $ = (id) => document.getElementById(id);
+  const dom = {
+    frame: $('frame'),
+    board: $('board'),
+    cells: $('cells'),
+    pieces: $('pieces'),
+    gap: $('exitGap'),
+    level: $('levelLabel'),
+    overlay: $('overlay'),
+    overlayTitle: $('overlayTitle'),
+    next: $('nextBtn'),
+  };
+
+  const G = {
+    level: 1,
+    pieces: [],
+    cellEls: [],
+    cell: 80,
+    gapPx: 5,
+    radius: 12,
+    drag: null,
+    busy: false,
+    won: false,
+  };
+
+  /* ====================================================== grid helpers */
+
+  function paint(pieces) {
+    const g = [];
+    for (let r = 0; r < N; r++) g.push(new Array(N).fill(-1));
+    for (let i = 0; i < pieces.length; i++) {
+      const p = pieces[i];
+      for (let dr = 0; dr < p.h; dr++)
+        for (let dc = 0; dc < p.w; dc++)
+          g[p.r + dr][p.c + dc] = i;
+    }
+    return g;
+  }
+
+  function slideInfo(pieces, index, allowExit) {
+    const p = pieces[index];
+    const g = paint(pieces);
+    const horiz = p.w > p.h;
+    const out = { min: 0, max: 0, axis: horiz ? 'h' : 'v', canExit: false };
+
+    if (horiz) {
+      for (let k = 1; k <= N; k++) {
+        const col = p.c - k;
+        if (col < 0) break;
+        let ok = true;
+        for (let r = p.r; r < p.r + p.h; r++) {
+          if (g[r][col] !== -1) { ok = false; break; }
+        }
+        if (!ok) break;
+        out.min = -k;
+      }
+      for (let k = 1; k <= N; k++) {
+        const col = p.c + p.w - 1 + k;
+        if (col >= N) {
+          if (allowExit && p.blue && p.r === EXIT_ROW && p.c + p.w === N) {
+            out.max = 3;
+            out.canExit = true;
+          }
+          break;
+        }
+        let ok = true;
+        for (let r = p.r; r < p.r + p.h; r++) {
+          if (g[r][col] !== -1) { ok = false; break; }
+        }
+        if (!ok) break;
+        out.max = k;
+      }
+    } else {
+      for (let k = 1; k <= N; k++) {
+        const row = p.r - k;
+        if (row < 0) break;
+        let ok = true;
+        for (let c = p.c; c < p.c + p.w; c++) {
+          if (g[row][c] !== -1) { ok = false; break; }
+        }
+        if (!ok) break;
+        out.min = -k;
+      }
+      for (let k = 1; k <= N; k++) {
+        const row = p.r + p.h - 1 + k;
+        if (row >= N) break;
+        let ok = true;
+        for (let c = p.c; c < p.c + p.w; c++) {
+          if (g[row][c] !== -1) { ok = false; break; }
+        }
+        if (!ok) break;
+        out.max = k;
+      }
+    }
+    return out;
+  }
+
+  /* ======================================================== generation */
+
+  function tryBuild(pieceCount) {
+    const pieces = [{ r: EXIT_ROW, c: N - 2, w: 2, h: 1, blue: true }];
+    const g = paint(pieces);
+    const reserved = new Set([EXIT_ROW * N + (N - 3)]);
+    let placed = 0;
+    let guard = 0;
+
+    while (placed < pieceCount && guard++ < 1500) {
+      const horiz = Math.random() < 0.5;
+      const w = horiz ? 2 : 1;
+      const h = horiz ? 1 : 2;
+      const r = Math.floor(Math.random() * (N - h + 1));
+      const c = Math.floor(Math.random() * (N - w + 1));
+
+      let ok = true;
+      for (let dr = 0; dr < h && ok; dr++) {
+        for (let dc = 0; dc < w; dc++) {
+          const rr = r + dr;
+          const cc = c + dc;
+          if (g[rr][cc] !== -1 || reserved.has(rr * N + cc)) { ok = false; break; }
+        }
+      }
+      if (!ok) continue;
+
+      pieces.push({ r, c, w, h, blue: false });
+      const idx = pieces.length - 1;
+      for (let dr = 0; dr < h; dr++)
+        for (let dc = 0; dc < w; dc++)
+          g[r + dr][c + dc] = idx;
+      placed++;
+    }
+    return pieces;
+  }
+
+  function buildBoard(pieceCount) {
+    let fallback = null;
+    for (let i = 0; i < 10; i++) {
+      const b = tryBuild(pieceCount);
+      if (!fallback || b.length > fallback.length) fallback = b;
+      if (b.length - 1 >= pieceCount) return b;
+    }
+    return fallback;
+  }
+
+  function legalMoves(pieces) {
+    const moves = [];
+    for (let i = 0; i < pieces.length; i++) {
+      const info = slideInfo(pieces, i, false);
+      if (info.min <= -1) {
+        moves.push(info.axis === 'h'
+          ? { i, dr: 0, dc: -1 }
+          : { i, dr: -1, dc: 0 });
+      }
+      if (info.max >= 1) {
+        moves.push(info.axis === 'h'
+          ? { i, dr: 0, dc: 1 }
+          : { i, dr: 1, dc: 0 });
+      }
+    }
+    return moves;
+  }
+
+  function scramble(pieces, steps) {
+    let prev = null;
+    for (let s = 0; s < steps; s++) {
+      const moves = legalMoves(pieces);
+      if (!moves.length) break;
+
+      let pool = moves;
+      if (prev) {
+        const filtered = moves.filter(
+          (m) => !(m.i === prev.i && m.dr === -prev.dr && m.dc === -prev.dc)
+        );
+        if (filtered.length) pool = filtered;
+      }
+
+      const m = pool[(Math.random() * pool.length) | 0];
+      pieces[m.i].r += m.dr;
+      pieces[m.i].c += m.dc;
+      prev = m;
+    }
+  }
+
+  function bfsDistance(pieces, limit) {
+    const n = pieces.length;
+    const blueIdx = pieces.findIndex((p) => p.blue);
+    const goal = EXIT_ROW * N + (N - 2);
+
+    const start = new Int8Array(n);
+    for (let i = 0; i < n; i++) start[i] = pieces[i].r * N + pieces[i].c;
+    if (start[blueIdx] === goal) return 0;
+
+    const keyOf = (a) => {
+      let s = '';
+      for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]);
+      return s;
+    };
+
+    const seen = new Set([keyOf(start)]);
+    let frontier = [start];
+    let depth = 0;
+    let nodes = 0;
+    const CAP = 12000;
+
+    while (frontier.length && depth < limit) {
+      depth++;
+      const next = [];
+
+      for (let f = 0; f < frontier.length; f++) {
+        if (++nodes > CAP) return -1;
+
+        const st = frontier[f];
+        const g = new Int8Array(N * N).fill(-1);
+
+        for (let i = 0; i < n; i++) {
+          const r = (st[i] / N) | 0;
+          const c = st[i] % N;
+          const p = pieces[i];
+          for (let dr = 0; dr < p.h; dr++)
+            for (let dc = 0; dc < p.w; dc++)
+              g[(r + dr) * N + (c + dc)] = i;
+        }
+
+        for (let i = 0; i < n; i++) {
+          const r = (st[i] / N) | 0;
+          const c = st[i] % N;
+          const p = pieces[i];
+          const horiz = p.w > p.h;
+          const probes = [];
+
+          if (horiz) {
+            if (c > 0) probes.push([0, -1, r, c - 1]);
+            if (c + p.w < N) probes.push([0, 1, r, c + p.w]);
+          } else {
+            if (r > 0) probes.push([-1, 0, r - 1, c]);
+            if (r + p.h < N) probes.push([1, 0, r + p.h, c]);
+          }
+
+          for (let q = 0; q < probes.length; q++) {
+            const dr = probes[q][0];
+            const dc = probes[q][1];
+            const tr = probes[q][2];
+            const tc = probes[q][3];
+
+            let ok = true;
+            if (horiz) {
+              for (let rr = r; rr < r + p.h; rr++) {
+                if (g[rr * N + tc] !== -1) { ok = false; break; }
+              }
+            } else {
+              for (let cc = c; cc < c + p.w; cc++) {
+                if (g[tr * N + cc] !== -1) { ok = false; break; }
+              }
+            }
+            if (!ok) continue;
+
+            const ns = st.slice();
+            ns[i] = (r + dr) * N + (c + dc);
+
+            if (i === blueIdx && ns[i] === goal) return depth;
+
+            const k = keyOf(ns);
+            if (!seen.has(k)) {
+              seen.add(k);
+              next.push(ns);
+            }
+          }
+        }
+      }
+      frontier = next;
+    }
+    return -1;
+  }
+
+  function levelConfig(level) {
+    return {
+      pieces: level <= 12 ? 11 : 10,
+      steps: Math.min(8 + level * 3, 120),
+      minMoves: Math.min(3 + Math.floor(level / 2), 6),
+    };
+  }
+
+  function generateLevel(level) {
+    const cfg = levelConfig(level);
+    const doorC = N - 2;
+    const deadline = performance.now() + 400;
+    let best = null;
+    let bestScore = -1;
+
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const pieces = buildBoard(cfg.pieces);
+      scramble(pieces, cfg.steps);
+
+      const blue = pieces.find((p) => p.blue);
+      if (blue.r === EXIT_ROW && blue.c === doorC) {
+        scramble(pieces, 6);
+        if (blue.r === EXIT_ROW && blue.c === doorC) continue;
+      }
+
+      const d = bfsDistance(pieces, cfg.minMoves);
+      const score = d < 0 ? 999 : d;
+
+      if (score > bestScore) { bestScore = score; best = pieces; }
+      if (d < 0 || d >= cfg.minMoves) return pieces;
+      if (performance.now() > deadline) break;
+    }
+
+    if (!best) {
+      best = buildBoard(cfg.pieces);
+      scramble(best, cfg.steps);
+    }
+    return best;
+  }
+
+  /* ============================================================ layout */
+
+  function measure() {
+    const rect = dom.board.getBoundingClientRect();
+    G.cell = rect.width / N;
+    G.gapPx = Math.max(3, G.cell * 0.055);
+    G.radius = Math.max(7, G.cell * 0.15);
+
+    dom.gap.style.top = EXIT_ROW * G.cell + 'px';
+    dom.gap.style.height = G.cell + 'px';
+  }
+
+  function placePiece(p, dx, dy) {
+    p.el.style.width = p.w * G.cell - G.gapPx + 'px';
+    p.el.style.height = p.h * G.cell - G.gapPx + 'px';
+    p.el.style.borderRadius = G.radius + 'px';
+    p.el.style.transform =
+      'translate3d(' +
+      (p.c * G.cell + G.gapPx / 2 + dx) + 'px,' +
+      (p.r * G.cell + G.gapPx / 2 + dy) + 'px,0)';
+  }
+
+  function layout() {
+    for (let i = 0; i < G.cellEls.length; i++) {
+      const el = G.cellEls[i];
+      const r = (i / N) | 0;
+      const c = i % N;
+      el.style.width = G.cell - G.gapPx + 'px';
+      el.style.height = G.cell - G.gapPx + 'px';
+      el.style.left = c * G.cell + G.gapPx / 2 + 'px';
+      el.style.top = r * G.cell + G.gapPx / 2 + 'px';
+      el.style.borderRadius = G.radius * 0.9 + 'px';
+    }
+    for (let i = 0; i < G.pieces.length; i++) placePiece(G.pieces[i], 0, 0);
+  }
+
+  function buildDom() {
+    dom.cells.innerHTML = '';
+    G.cellEls = [];
+    for (let i = 0; i < N * N; i++) {
+      const el = document.createElement('div');
+      el.className = 'cell';
+      dom.cells.appendChild(el);
+      G.cellEls.push(el);
+    }
+
+    dom.pieces.innerHTML = '';
+    for (let i = 0; i < G.pieces.length; i++) {
+      const p = G.pieces[i];
+      const el = document.createElement('div');
+      el.className = 'piece' + (p.blue ? ' blue' : '');
+      dom.pieces.appendChild(el);
+      p.el = el;
+    }
+  }
+
+  /* ============================================================== drag */
+
+  function onDown(e) {
+    if (G.busy || G.won || G.drag) return;
+
+    const el = e.target && e.target.closest ? e.target.closest('.piece') : null;
+    if (!el) return;
+
+    const p = G.pieces.find((pp) => pp.el === el);
+    if (!p) return;
+
+    e.preventDefault();
+
+    const idx = G.pieces.indexOf(p);
+    const info = slideInfo(G.pieces, idx, true);
+
+    G.drag = {
+      p: p,
+      el: el,
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      min: info.min,
+      max: info.max,
+      canExit: info.canExit,
+      dx: 0,
+      dy: 0,
+    };
+
+    el.style.transition = 'none';
+    el.classList.add('dragging');
+    el.style.zIndex = p.blue ? 40 : 30;
+
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+
+  function onMove(e) {
+    const d = G.drag;
+    if (!d || e.pointerId !== d.id) return;
+
+    const horiz = d.p.w > d.p.h;
+    let delta = horiz ? e.clientX - d.x0 : e.clientY - d.y0;
+
+    const maxCells = d.canExit ? 0.42 : d.max;
+    delta = Math.min(maxCells * G.cell, Math.max(d.min * G.cell, delta));
+
+    d.dx = horiz ? delta : 0;
+    d.dy = horiz ? 0 : delta;
+    placePiece(d.p, d.dx, d.dy);
+
+    e.preventDefault();
+  }
+
+  function onUp(e) {
+    const d = G.drag;
+    if (!d || e.pointerId !== d.id) return;
+
+    G.drag = null;
+    d.el.classList.remove('dragging');
+    d.el.style.zIndex = '';
+    d.el.style.transition = '';
+
+    const horiz = d.p.w > d.p.h;
+    const raw = horiz ? d.dx : d.dy;
+
+    if (d.p.blue && d.canExit && raw > G.cell * 0.08) {
+      exitThroughDoor(d.p);
+      return;
+    }
+
+    let cells = Math.round(raw / G.cell);
+    if (!isFinite(cells)) cells = 0;
+    cells = Math.max(d.min, Math.min(d.max, cells));
+
+    if (horiz) d.p.c += cells;
+    else d.p.r += cells;
+
+    placePiece(d.p, 0, 0);
+  }
+
+  function exitThroughDoor(p) {
+    G.busy = true;
+    const x = p.c * G.cell + G.gapPx / 2;
+    const y = p.r * G.cell + G.gapPx / 2;
+
+    p.el.style.transition =
+      'transform 0.34s cubic-bezier(0.35, 0, 0.55, 1), opacity 0.26s ease-in 0.04s';
+    p.el.style.transform =
+      'translate3d(' + (x + G.cell * 0.9) + 'px,' + y + 'px,0)';
+    p.el.style.opacity = '0';
+
+    window.setTimeout(showWin, 300);
+  }
+
+  /* ============================================================== flow */
+
+  function store(level) {
+    try { localStorage.setItem(STORE_KEY, String(level)); } catch (err) {}
+  }
+
+  function restore() {
+    try {
+      const v = parseInt(localStorage.getItem(STORE_KEY) || '1', 10);
+      return v >= 1 && v < 1000000 ? v : 1;
+    } catch (err) {
+      return 1;
+    }
+  }
+
+  function showWin() {
+    if (G.won) return;
+    G.won = true;
+    G.busy = true;
+    dom.overlayTitle.textContent = 'Level ' + G.level + ' complete';
+    dom.overlay.classList.add('show');
+    dom.overlay.setAttribute('aria-hidden', 'false');
+    store(G.level + 1);
+  }
+
+  function startLevel(level) {
+    G.level = level;
+    G.won = false;
+    G.busy = false;
+    G.drag = null;
+
+    const fresh = generateLevel(level);
+    let id = 0;
+    G.pieces = fresh.map((p) => ({
+      r: p.r, c: p.c, w: p.w, h: p.h, blue: !!p.blue, id: id++,
+    }));
+
+    dom.level.textContent = 'Level ' + level;
+    dom.overlay.classList.remove('show');
+    dom.overlay.setAttribute('aria-hidden', 'true');
+
+    buildDom();
+    measure();
+
+    dom.pieces.classList.add('no-anim');
+    layout();
+    requestAnimationFrame(() => dom.pieces.classList.remove('no-anim'));
+
+    dom.frame.classList.remove('enter');
+    void dom.frame.offsetWidth;
+    dom.frame.classList.add('enter');
+
+    store(level);
+  }
+
+  /* ============================================================== init */
+
+  dom.pieces.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove, { passive: false });
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+
+  dom.next.addEventListener('click', () => {
+    if (!G.won) return;
+    startLevel(G.level + 1);
+  });
+
+  let lastCell = 0;
+  const ro = new ResizeObserver(() => {
+    if (G.drag) return;
+    measure();
+    if (Math.abs(G.cell - lastCell) < 0.5) return;
+    lastCell = G.cell;
+    dom.pieces.classList.add('no-anim');
+    layout();
+    requestAnimationFrame(() => dom.pieces.classList.remove('no-anim'));
+  });
+  ro.observe(dom.board);
+
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+  startLevel(restore());
+})();
+</script>
+</body>
+</html>
